@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AKP03E Panel</title>
+<style>
+:root {
+  --bg: #f4f5f7; --panel: #ffffff; --text: #1d2129; --muted: #6b7280; --line: #e3e5e8;
+  --accent: #3b82f6; --accent-soft: #dbeafe; --danger: #dc2626; --ok: #16a34a;
+  --device: #17191d; --device-edge: #2a2d33; --key-edge: #3a3e46;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0f1115; --panel: #171a20; --text: #e6e8eb; --muted: #8b93a1; --line: #262a32;
+          --accent: #60a5fa; --accent-soft: #1e3a5f; --device: #0b0c0f; --device-edge: #22252b; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.45 "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+header { display: flex; align-items: center; gap: 16px; padding: 14px 24px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+header h1 { font-size: 17px; margin: 0; font-weight: 650; }
+.status { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); }
+.dot.on { background: var(--ok); }
+.spacer { flex: 1; }
+label.inline { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+main { display: grid; grid-template-columns: minmax(420px, 1fr) 380px; gap: 20px; padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+.tab { border: 1px solid var(--line); background: transparent; color: var(--text); padding: 6px 12px; border-radius: 999px; cursor: pointer; font: inherit; }
+.tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tab.add { color: var(--muted); }
+.profile-bar { display: flex; gap: 8px; margin-bottom: 18px; }
+.profile-bar input { flex: 1; }
+
+/* urządzenie */
+.device { background: var(--device); border: 2px solid var(--device-edge); border-radius: 22px; padding: 22px; display: grid; grid-template-columns: auto auto; gap: 22px; justify-content: center; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.lcd-grid { display: grid; grid-template-columns: repeat(3, 84px); gap: 12px; }
+.key { width: 84px; height: 84px; border-radius: 12px; border: 2px solid var(--key-edge); background: #000; padding: 0; cursor: pointer; overflow: hidden; transition: transform .08s, border-color .15s; }
+.key img { width: 100%; height: 100%; display: block; image-rendering: auto; }
+.btn-row { grid-column: 1; display: grid; grid-template-columns: repeat(3, 84px); gap: 12px; }
+.sbtn { height: 34px; border-radius: 9px; border: 2px solid var(--key-edge); background: #24272d; color: #c8ccd3; cursor: pointer; font: 600 13px "Segoe UI", sans-serif; }
+.knobs { grid-column: 2; grid-row: 1 / span 2; display: grid; grid-template-areas: ". top ." "left . right"; grid-template-columns: 62px 10px 62px; grid-template-rows: 80px 80px; gap: 10px; align-content: center; }
+.knob { width: 62px; height: 62px; border-radius: 50%; border: 2px solid var(--key-edge); background: radial-gradient(circle at 35% 30%, #4a4e57, #1c1e22 70%); cursor: pointer; position: relative; transition: transform .15s; }
+.knob::after { content: ""; position: absolute; top: 6px; left: 50%; width: 3px; height: 14px; margin-left: -1.5px; background: #cfd3da; border-radius: 2px; }
+.knob span { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 4px; font-size: 11px; color: #8b93a1; white-space: nowrap; }
+.knob.own { border-color: #d97757; } .knob.own span::after { content: " ·"; color: #d97757; }
+.knob.k0 { grid-area: left; } .knob.k1 { grid-area: top; justify-self: center; } .knob.k2 { grid-area: right; }
+.selected { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-soft); }
+.live { transform: scale(.93); border-color: #fbbf24 !important; }
+.knob.spin-r { transform: rotate(30deg); } .knob.spin-l { transform: rotate(-30deg); }
+.hint { color: var(--muted); font-size: 12.5px; margin: 14px 0 0; text-align: center; }
+
+/* edytor */
+.editor h2 { font-size: 15px; margin: 0 0 4px; }
+.editor .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 14px; }
+.field { margin-bottom: 12px; }
+.field > span { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .03em; }
+input[type=text], input[type=number], textarea, select { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+textarea { resize: vertical; min-height: 54px; }
+input[type=color] { width: 44px; height: 32px; border: 1px solid var(--line); border-radius: 8px; padding: 2px; background: var(--bg); }
+.row { display: flex; gap: 8px; align-items: center; }
+button.btn { border: 1px solid var(--line); background: var(--bg); color: var(--text); padding: 6px 12px; border-radius: 8px; cursor: pointer; font: inherit; }
+button.btn:hover { border-color: var(--accent); }
+button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.btn.danger { color: var(--danger); }
+.action-box { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+.action-box > .title { font-weight: 600; margin-bottom: 8px; }
+.help { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.swatches { display: flex; gap: 5px; flex-wrap: wrap; }
+.swatch { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line); cursor: pointer; padding: 0; }
+.log { margin-top: 20px; }
+.log h3 { font-size: 13px; margin: 0 0 6px; color: var(--muted); font-weight: 600; }
+.log ul { list-style: none; margin: 0; padding: 0; max-height: 170px; overflow: auto; font: 12px/1.6 Consolas, monospace; }
+.log li.error { color: var(--danger); }
+.saved { color: var(--muted); font-size: 12px; }
+.empty { color: var(--muted); text-align: center; padding: 40px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AKP03E</h1>
+  <div class="status"><div class="dot" id="dot"></div><span id="conn">łączenie…</span></div>
+  <div class="spacer"></div>
+  <span class="saved" id="saved"></span>
+  <label class="inline"><input type="checkbox" id="autostart"> Uruchamiaj z Windows</label>
+  <label class="inline">Jasność <input type="range" min="0" max="100" id="brightness"> <span id="brightnessVal"></span></label>
+</header>
+
+<main>
+  <section class="card">
+    <div class="tabs" id="tabs"></div>
+    <div class="profile-bar">
+      <input type="text" id="profileName" placeholder="Nazwa profilu">
+      <button class="btn danger" id="delProfile" title="Usuń profil">Usuń profil</button>
+    </div>
+    <div class="device">
+      <div class="lcd-grid" id="lcd"></div>
+      <div class="knobs" id="knobs"></div>
+      <div class="btn-row" id="buttons"></div>
+    </div>
+    <p class="hint">Kliknij element, żeby go edytować. Naciśnięcie fizycznego przycisku podświetla go tutaj.</p>
+    <div class="log"><h3>Zdarzenia</h3><ul id="log"></ul></div>
+  </section>
+
+  <aside class="card editor" id="editor"><div class="empty">Wybierz klawisz, przycisk lub pokrętło.</div></aside>
+</main>
+
+<script>
+const KNOB_NAMES = ["Lewe pokrętło", "Górne pokrętło", "Prawe pokrętło"];
+const BUTTON_NAMES = ["Przycisk A", "Przycisk B", "Przycisk C"];
+const SWATCHES = ["#1f2430", "#2b2b3a", "#5c6370", "#0065a9", "#0052cc", "#2d6a4f", "#1db954", "#f46800", "#b45309", "#8b1e3f", "#7c3aed", "#db2777", "#e5e7eb"];
+
+const ACTIONS = {
+  none:          { label: "Brak",                              fields: [] },
+  open:          { label: "Otwórz aplikację / plik / URL",     fields: [["target", "text", "Cel", "np. wt.exe, code, https://…, C:\\Program Files\\…\\app.exe, ms-settings:"], ["args", "text", "Argumenty (opcjonalnie)", ""]] },
+  hotkey:        { label: "Skrót klawiszowy",                  fields: [["keys", "hotkey", "Skrót", "np. Ctrl+Shift+M"]] },
+  text:          { label: "Wpisz tekst",                       fields: [["text", "textarea", "Tekst", ""], ["enter", "checkbox", "Na końcu naciśnij Enter (np. wyślij polecenie)", ""]] },
+  media:         { label: "Multimedia",                        fields: [["key", "select:play_pause=Play / pauza,next=Następny utwór,prev=Poprzedni utwór,stop=Stop", "Klawisz", ""]] },
+  system_volume: { label: "Głośność systemowa",                fields: [["step", "number", "Zmiana (%) — ujemna ścisza", ""]] },
+  system_mute:   { label: "Wycisz dźwięk systemowy",           fields: [] },
+  app_volume:    { label: "Głośność aktywnej aplikacji",       fields: [["step", "number", "Zmiana (%) — ujemna ścisza", ""]] },
+  app_mute:      { label: "Wycisz aktywną aplikację",          fields: [] },
+  mic_toggle:    { label: "Mikrofon on/off",                   fields: [] },
+  lock:          { label: "Zablokuj komputer",                 fields: [] },
+  profile_next:  { label: "Następny profil",                   fields: [] },
+  profile_prev:  { label: "Poprzedni profil",                  fields: [] },
+  screen_toggle: { label: "Wygaś / włącz ekrany kontrolera",   fields: [] },
+};
+const DEFAULTS = { open: { target: "", args: "" }, hotkey: { keys: "" }, text: { text: "", enter: false }, media: { key: "play_pause" }, system_volume: { step: 2 }, app_volume: { step: 5 } };
+
+let cfg = null, status = { profile: 0, connected: false };
+let sel = null; // { kind: 'key'|'button'|'knob', index }
+let previewVer = 0, saveTimer = null;
+const $ = (id) => document.getElementById(id);
+const h = (tag, attrs = {}, ...kids) => {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "class") el.className = v;
+    else if (v !== undefined && v !== null) el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null) el.append(kid);
+  return el;
+};
+
+// Odróżnia własne zapisy od zmian z innych kart / skryptów.
+const CLIENT_ID = Math.random().toString(36).slice(2);
+
+// Konfiguracja zmieniona gdzie indziej (albo program uruchomiony od nowa) – pobieramy ją na nowo.
+async function reloadConfig() {
+  clearTimeout(saveTimer);
+  cfg = await api("/api/config");
+  status = await api("/api/state");
+  previewVer++;
+  applyStatus(status);
+  renderAll();
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, opts);
+  const body = res.headers.get("content-type")?.includes("json") ? await res.json() : null;
+  if (!res.ok) throw new Error(body?.error || res.statusText);
+  return body;
+}
+
+function profile() { return cfg.profiles[Math.min(status.profile, cfg.profiles.length - 1)]; }
+
+// ---------- zapis ----------
+function scheduleSave() {
+  $("saved").textContent = "zapisywanie…";
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(save, 400);
+}
+async function save() {
+  try {
+    // Nie podmieniamy `cfg` odpowiedzią – otwarty edytor trzyma referencje do jego obiektów.
+    await api("/api/config", { method: "PUT", headers: { "content-type": "application/json", "x-client": CLIENT_ID }, body: JSON.stringify(cfg) });
+    $("saved").textContent = "zapisano";
+    previewVer++;
+    renderDevice();
+  } catch (e) { $("saved").textContent = "błąd zapisu: " + e.message; }
+}
+
+// ---------- widok urządzenia ----------
+function renderTabs() {
+  const tabs = $("tabs");
+  tabs.replaceChildren(
+    ...cfg.profiles.map((p, i) => h("button", { class: "tab" + (i === status.profile ? " active" : ""), onclick: () => switchProfile(i) }, p.name || `Profil ${i + 1}`)),
+    h("button", { class: "tab add", onclick: addProfile, title: "Dodaj profil" }, "+ profil"),
+  );
+  $("profileName").value = profile().name;
+  $("delProfile").disabled = cfg.profiles.length < 2;
+}
+
+function renderDevice() {
+  const p = Math.min(status.profile, cfg.profiles.length - 1);
+  $("lcd").replaceChildren(...[0, 1, 2, 3, 4, 5].map(i =>
+    h("button", { class: "key", id: `key-${i}`, onclick: () => select("key", i), title: `Klawisz LCD ${i + 1}` },
+      h("img", { src: `/api/preview?profile=${p}&key=${i}&v=${previewVer}`, alt: "" }))));
+  $("buttons").replaceChildren(...[0, 1, 2].map(i =>
+    h("button", { class: "sbtn", id: `button-${i}`, onclick: () => select("button", i) }, "ABC"[i])));
+  $("knobs").replaceChildren(...[0, 1, 2].map(i =>
+    h("div", { class: `knob k${i}` + (profile().encoders?.[i] ? " own" : ""), id: `knob-${i}`, onclick: () => select("knob", i),
+      title: KNOB_NAMES[i] + (profile().encoders?.[i] ? " – własne ustawienie w tym profilu" : "") }, h("span", {}, KNOB_NAMES[i].split(" ")[0]))));
+  markSelected();
+  $("brightness").value = cfg.brightness;
+  $("brightnessVal").textContent = cfg.brightness + "%";
+}
+
+function markSelected() {
+  document.querySelectorAll(".selected").forEach(e => e.classList.remove("selected"));
+  if (sel) $(`${sel.kind}-${sel.index}`)?.classList.add("selected");
+}
+
+function select(kind, index) { sel = { kind, index }; markSelected(); renderEditor(); }
+
+async function switchProfile(i) {
+  status = await api(`/api/profile/${i}`, { method: "POST" });
+  renderAll();
+}
+
+function addProfile() {
+  cfg.profiles.push({ name: `Profil ${cfg.profiles.length + 1}`, keys: Array.from({ length: 6 }, () => ({ label: "", color: "#1f2430", action: { type: "none" } })) });
+  save().then(() => switchProfile(cfg.profiles.length - 1));
+}
+
+// ---------- edytor ----------
+function actionEditor(title, action, onChange) {
+  const box = h("div", { class: "action-box" }, title ? h("div", { class: "title" }, title) : null);
+  const select = h("select", { onchange: () => { const t = select.value; onChange({ type: t, ...(DEFAULTS[t] || {}) }); renderEditor(); } },
+    ...Object.entries(ACTIONS).map(([k, v]) => h("option", { value: k, ...(k === action.type ? { selected: "" } : {}) }, v.label)));
+  box.append(h("div", { class: "field" }, h("span", {}, "Akcja"), select));
+
+  for (const [name, type, label, placeholder] of ACTIONS[action.type]?.fields || []) {
+    const update = (v) => { action[name] = v; onChange(action); };
+    let input;
+    if (type === "textarea") {
+      input = h("textarea", { placeholder, oninput: e => update(e.target.value) }); input.value = action[name] ?? "";
+    } else if (type === "number") {
+      input = h("input", { type: "number", step: 1, oninput: e => update(parseInt(e.target.value || "0", 10)) }); input.value = action[name] ?? 0;
+    } else if (type.startsWith("select:")) {
+      input = h("select", { onchange: e => update(e.target.value) },
+        ...type.slice(7).split(",").map(o => { const [v, l] = o.split("="); return h("option", { value: v, ...(v === action[name] ? { selected: "" } : {}) }, l); }));
+    } else if (type === "checkbox") {
+      const check = h("input", { type: "checkbox", onchange: e => update(e.target.checked) }); check.checked = !!action[name];
+      box.append(h("div", { class: "field" }, h("label", { class: "row" }, check, label)));
+      continue;
+    } else if (type === "hotkey") {
+      const text = h("input", { type: "text", placeholder, oninput: e => update(e.target.value) }); text.value = action[name] ?? "";
+      const rec = h("button", { class: "btn", onclick: () => recordHotkey(text, rec, update) }, "Nagraj");
+      input = h("div", {}, h("div", { class: "row" }, text, rec),
+        h("div", { class: "help" }, "Klawisze łączone „+”: Ctrl, Shift, Alt, Win, A–Z, 0–9, F1–F24, Enter, Esc, Tab, Space, strzałki (Left/Up/…), Home, End, PageUp, Delete, PrintScreen, VolumeUp/Down/Mute."));
+    } else {
+      input = h("input", { type: "text", placeholder, oninput: e => update(e.target.value) }); input.value = action[name] ?? "";
+    }
+    box.append(h("div", { class: "field" }, h("span", {}, label), input));
+  }
+  if (action.type !== "none") {
+    box.append(h("button", { class: "btn", onclick: () => api("/api/test", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(action) }) }, "▶ Testuj"));
+  }
+  return box;
+}
+
+function recordHotkey(input, btn, update) {
+  btn.textContent = "Naciśnij skrót…"; btn.classList.add("primary");
+  const handler = (e) => {
+    e.preventDefault();
+    if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) return;
+    const parts = [];
+    if (e.ctrlKey) parts.push("Ctrl"); if (e.shiftKey) parts.push("Shift"); if (e.altKey) parts.push("Alt"); if (e.metaKey) parts.push("Win");
+    let k = e.code.replace(/^Key/, "").replace(/^Digit/, "").replace(/^Arrow/, "");
+    if (k === "Escape") k = "Esc";
+    parts.push(k);
+    input.value = parts.join("+"); update(input.value);
+    btn.textContent = "Nagraj"; btn.classList.remove("primary");
+    window.removeEventListener("keydown", handler, true);
+  };
+  window.addEventListener("keydown", handler, true);
+}
+
+function renderEditor() {
+  const ed = $("editor");
+  if (!sel) { ed.replaceChildren(h("div", { class: "empty" }, "Wybierz klawisz, przycisk lub pokrętło.")); return; }
+
+  if (sel.kind === "key") {
+    const key = profile().keys[sel.index];
+    const changed = () => scheduleSave();
+    const color = h("input", { type: "color", oninput: e => { key.color = e.target.value; changed(); } }); color.value = key.color || "#1f2430";
+    const label = h("textarea", { rows: 2, placeholder: "Podpis (Enter = nowa linia)", oninput: e => { key.label = e.target.value; changed(); } }); label.value = key.label || "";
+    const file = h("input", { type: "file", accept: "image/png,image/jpeg", style: "display:none", onchange: async e => {
+      const f = e.target.files[0]; if (!f) return;
+      try {
+        const r = await api(`/api/icons?name=${encodeURIComponent(f.name)}`, { method: "POST", body: f });
+        key.icon = r.name; await save(); renderEditor();
+      } catch (err) { alert(err.message); }
+    } });
+    ed.replaceChildren(
+      h("h2", {}, `Klawisz LCD ${sel.index + 1}`),
+      h("p", { class: "sub" }, `Profil „${profile().name}”`),
+      h("div", { class: "field" }, h("span", {}, "Podpis"), label),
+      h("div", { class: "field" }, h("span", {}, "Kolor tła"),
+        h("div", { class: "row" }, color, h("div", { class: "swatches" }, ...SWATCHES.map(c => h("button", { class: "swatch", style: `background:${c}`, title: c, onclick: () => { key.color = c; color.value = c; changed(); } }))))),
+      h("div", { class: "field" }, h("span", {}, "Ikona"),
+        h("div", { class: "row" }, file,
+          h("button", { class: "btn", onclick: () => file.click() }, key.icon ? "Zmień ikonę" : "Wgraj PNG/JPEG"),
+          key.icon ? h("button", { class: "btn danger", onclick: () => { delete key.icon; save(); renderEditor(); } }, "Usuń") : null,
+          key.icon ? h("span", { class: "help" }, key.icon) : null)),
+      actionEditor(null, key.action, a => { key.action = a; changed(); }),
+    );
+  } else if (sel.kind === "button") {
+    ed.replaceChildren(
+      h("h2", {}, BUTTON_NAMES[sel.index]),
+      h("p", { class: "sub" }, "Przycisk bez ekranu – wspólny dla wszystkich profili"),
+      actionEditor(null, cfg.buttons[sel.index], a => { cfg.buttons[sel.index] = a; scheduleSave(); }),
+    );
+  } else {
+    const p = profile(), key = String(sel.index);
+    const own = !!p.encoders?.[key];
+    const enc = own ? p.encoders[key] : cfg.encoders[sel.index];
+    const toggle = h("input", { type: "checkbox", onchange: e => {
+      p.encoders ??= {};
+      // Własne ustawienie startuje jako kopia wspólnego.
+      if (e.target.checked) p.encoders[key] = structuredClone(cfg.encoders[sel.index]);
+      else delete p.encoders[key];
+      scheduleSave(); renderDevice(); renderEditor();
+    } });
+    toggle.checked = own;
+    ed.replaceChildren(
+      h("h2", {}, KNOB_NAMES[sel.index]),
+      h("div", { class: "field" }, h("label", { class: "row" }, toggle, `Inne ustawienie w profilu „${p.name}”`)),
+      h("p", { class: "sub" }, own ? `Działa tylko w profilu „${p.name}”` : "Wspólne dla wszystkich profili bez własnego ustawienia"),
+      actionEditor("↺ Obrót w lewo", enc.left, a => { enc.left = a; scheduleSave(); }),
+      actionEditor("↻ Obrót w prawo", enc.right, a => { enc.right = a; scheduleSave(); }),
+      actionEditor("⏺ Wciśnięcie", enc.press, a => { enc.press = a; scheduleSave(); }),
+    );
+  }
+}
+
+// ---------- na żywo ----------
+function log(msg, level = "info") {
+  const li = h("li", { class: level }, `${new Date().toLocaleTimeString()}  ${msg}`);
+  $("log").prepend(li);
+  while ($("log").children.length > 40) $("log").lastChild.remove();
+}
+
+function applyStatus(s) {
+  const profileChanged = s.profile !== status.profile;
+  const micChanged = s.mic_muted !== status.mic_muted;
+  status = s;
+  $("autostart").checked = !!s.autostart;
+  $("dot").classList.toggle("on", s.connected);
+  $("conn").textContent = s.connected ? (s.screen_on ? "połączono" : "połączono · ekrany wygaszone") : "kontroler niepodłączony";
+  if (cfg && (profileChanged || micChanged)) { if (micChanged) previewVer++; renderAll(); }
+}
+
+function connectEvents() {
+  const es = new EventSource("/api/events");
+  es.onmessage = (m) => {
+    const e = JSON.parse(m.data);
+    if (e.type === "status") applyStatus(e);
+    else if (e.type === "config") { if (e.client !== CLIENT_ID) { reloadConfig(); log("Konfiguracja zmieniona poza tym panelem – wczytano ją ponownie"); } }
+    else if (e.type === "log") log(e.msg, e.level);
+    else if (e.type === "press") {
+      const el = $(`${e.target}-${e.index}`);
+      el?.classList.toggle("live", e.down);
+      if (e.down) {
+        const name = e.target === "key" ? `LCD ${e.index + 1}` : e.target === "button" ? BUTTON_NAMES[e.index] : KNOB_NAMES[e.index];
+        log(`▼ ${name}`);
+        select(e.target, e.index);
+      }
+    } else if (e.type === "twist") {
+      const el = $(`knob-${e.index}`);
+      if (el) { el.classList.remove("spin-l", "spin-r"); void el.offsetWidth; el.classList.add(e.delta > 0 ? "spin-r" : "spin-l"); setTimeout(() => el.classList.remove("spin-l", "spin-r"), 180); }
+    }
+  };
+  let lost = false;
+  es.onerror = () => { lost = true; $("dot").classList.remove("on"); $("conn").textContent = "brak połączenia z programem"; };
+  // Po utracie połączenia program mógł zostać uruchomiony od nowa z innym plikiem konfiguracji.
+  es.onopen = () => { if (lost) { lost = false; reloadConfig(); } };
+}
+
+function renderAll() { renderTabs(); renderDevice(); renderEditor(); }
+
+$("profileName").addEventListener("input", e => { profile().name = e.target.value; renderTabs(); scheduleSave(); });
+$("delProfile").addEventListener("click", () => {
+  if (cfg.profiles.length < 2 || !confirm(`Usunąć profil „${profile().name}”?`)) return;
+  cfg.profiles.splice(status.profile, 1);
+  status.profile = Math.max(0, status.profile - 1);
+  sel = null;
+  save().then(() => switchProfile(status.profile));
+});
+$("autostart").addEventListener("change", async e => { applyStatus(await api(`/api/autostart/${e.target.checked}`, { method: "POST" })); });
+$("brightness").addEventListener("input", e => { cfg.brightness = +e.target.value; $("brightnessVal").textContent = cfg.brightness + "%"; scheduleSave(); });
+
+(async () => {
+  cfg = await api("/api/config");
+  status = await api("/api/state");
+  applyStatus(status);
+  renderAll();
+  connectEvents();
+})();
+</script>
+</body>
+</html>

@@ -82,7 +82,20 @@ Shortcuts and text go to the focused window, so keep the terminal with Claude Co
 
 ## Getting started
 
-### Requirements
+### Download
+
+Ready-to-run builds are on the [Releases](https://github.com/ksiuda93/akp03e/releases) page:
+
+1. Download `akp03e.exe` (or the `.zip` with the README).
+2. Put it wherever you want to keep it, e.g. `%LOCALAPPDATA%\Programs\akp03e\`, and run it.
+3. Enable "Start with Windows" in the panel or the tray menu – the entry points to the file you ran.
+
+The executable is not code-signed, so Windows SmartScreen may warn about it on first run
+("More info" → "Run anyway"). Each release lists SHA-256 checksums in `SHA256SUMS.txt`.
+
+### Build from source
+
+#### Requirements
 
 - Windows 10/11 and an Ajazz AKP03E (revision 2, USB ID `0300:3002`).
 - [Rust](https://rustup.rs/). The repository pins the `stable-x86_64-pc-windows-gnu` toolchain in
@@ -93,7 +106,7 @@ Shortcuts and text go to the focused window, so keep the terminal with Claude Co
   winget install --source winget BrechtSanders.WinLibs.POSIX.UCRT
   ```
 
-### Install
+#### Install
 
 ```powershell
 git clone https://github.com/ksiuda93/akp03e.git
@@ -106,7 +119,7 @@ cd akp03e
 the new one. The panel opens in your browser; afterwards use the tray icon. Enable
 "Start with Windows" in the panel or the tray menu.
 
-### Develop
+#### Develop
 
 ```powershell
 cargo run
@@ -114,6 +127,23 @@ cargo run
 
 The debug build keeps a console window with the log. The release build runs in the background and
 writes its log to a file instead.
+
+### CI and releases
+
+- **CI** (`.github/workflows/ci.yml`) runs Clippy and a release build on every push to `main` and on
+  pull requests. The built `akp03e.exe` is attached to the run as an artifact for 14 days.
+- **Release** (`.github/workflows/release.yml`) runs when a version tag is pushed. It checks that
+  the tag matches `version` in `Cargo.toml`, builds the executable and publishes a GitHub release
+  with `akp03e.exe`, a `.zip` and `SHA256SUMS.txt`:
+
+  ```powershell
+  # bump version in Cargo.toml first, commit, then:
+  git tag v0.2.0
+  git push origin v0.2.0
+  ```
+
+CI builds with the MSVC toolchain that GitHub's Windows runners provide; local builds use the GNU
+toolchain from `rust-toolchain.toml`.
 
 ### Files
 

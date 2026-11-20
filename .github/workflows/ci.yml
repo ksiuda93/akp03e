@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # rust-toolchain.toml pins the GNU toolchain for local builds without Visual Studio.
+  # GitHub's Windows runners ship with MSVC, so CI uses that instead.
+  RUSTUP_TOOLCHAIN: stable-x86_64-pc-windows-msvc
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: rustup toolchain install stable-x86_64-pc-windows-msvc --profile minimal --component clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Clippy
+        run: cargo clippy --release -- -D warnings
+
+      - name: Build
+        run: cargo build --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: akp03e-${{ github.sha }}
+          path: target/release/akp03e.exe
+          retention-days: 14

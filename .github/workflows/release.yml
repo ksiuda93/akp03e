@@ -1,0 +1,62 @@
+name: Release
+
+# Push a tag like v0.2.0 (matching `version` in Cargo.toml) to publish a release
+# with the Windows executable attached.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  # See ci.yml: GitHub's Windows runners use MSVC instead of the locally pinned GNU toolchain.
+  RUSTUP_TOOLCHAIN: stable-x86_64-pc-windows-msvc
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that the tag matches Cargo.toml
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          if ("v$version" -ne $env:GITHUB_REF_NAME) {
+            throw "Tag $env:GITHUB_REF_NAME does not match Cargo.toml version $version"
+          }
+
+      - name: Install Rust
+        run: rustup toolchain install stable-x86_64-pc-windows-msvc --profile minimal
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $name = "akp03e-$env:GITHUB_REF_NAME-windows-x64"
+          New-Item -ItemType Directory dist/$name | Out-Null
+          Copy-Item target/release/akp03e.exe dist/$name/akp03e.exe
+          Copy-Item README.md dist/$name/
+          Compress-Archive dist/$name/* dist/$name.zip
+          Copy-Item target/release/akp03e.exe dist/akp03e.exe
+          Get-FileHash dist/$name.zip, dist/akp03e.exe -Algorithm SHA256 |
+            ForEach-Object { "{0}  {1}" -f $_.Hash.ToLower(), (Split-Path $_.Path -Leaf) } |
+            Set-Content dist/SHA256SUMS.txt
+          Get-Content dist/SHA256SUMS.txt
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $name = "akp03e-$env:GITHUB_REF_NAME-windows-x64"
+          gh release create $env:GITHUB_REF_NAME `
+            "dist/$name.zip" dist/akp03e.exe dist/SHA256SUMS.txt `
+            --title "AKP03E $env:GITHUB_REF_NAME" `
+            --generate-notes

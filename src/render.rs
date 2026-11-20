@@ -1,4 +1,4 @@
-//! Rysowanie obrazków 64x64 dla klawiszy LCD: tło, ikona, podpis.
+//! Drawing 64x64 images for the LCD keys: background, icon, label.
 
 use std::{path::Path, sync::OnceLock};
 
@@ -68,7 +68,7 @@ pub fn render_key(key: &KeyConfig, icons_dir: &Path, mic_muted: bool) -> Dynamic
     DynamicImage::ImageRgba8(img)
 }
 
-/// Rysuje wyśrodkowany, wielowierszowy podpis w obszarze [top, SIZE), zmniejszając czcionkę aż się zmieści.
+/// Draws a centred, multi-line label in the area [top, SIZE), shrinking the font until it fits.
 fn draw_label(img: &mut RgbaImage, label: &str, top: u32, bg: [u8; 3]) {
     let Some(font) = font() else { return };
     let lines: Vec<&str> = label.lines().collect();

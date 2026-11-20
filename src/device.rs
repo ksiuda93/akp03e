@@ -1,5 +1,5 @@
-//! Obsługa kontrolera: połączenie (z ponawianiem), rysowanie klawiszy, odczyt zdarzeń.
-//! Protokół i mapowanie wejść za opendeck-akp03 (4ndv) / mirajazz.
+//! Controller handling: connection (with retries), drawing the keys, reading input.
+//! Protocol and input mapping after opendeck-akp03 (4ndv) / mirajazz.
 
 use std::{
     sync::{Arc, atomic::Ordering},
@@ -24,7 +24,7 @@ const VID: u16 = 0x0300;
 const PID: u16 = 0x3002;
 const QUERY: DeviceQuery = DeviceQuery::new(0xFFA0, 1, VID, PID);
 const PROTOCOL_VERSION: usize = 3;
-/// 6 klawiszy LCD + 3 przyciski bez ekranu.
+/// 6 LCD keys + 3 buttons without a screen.
 const KEY_COUNT: usize = 9;
 
 const IMAGE_FORMAT: ImageFormat = ImageFormat {
@@ -82,10 +82,10 @@ pub async fn run(state: Arc<AppState>) {
         match session(&state, &mut quit, &mut announced_missing).await {
             Ok(true) => return,
             Ok(false) => {}
-            Err(e) => state.log("error", format!("Kontroler: {e}")),
+            Err(e) => state.log("error", format!("Controller: {e}")),
         }
         if state.connected.swap(false, Ordering::Relaxed) {
-            state.log("info", "Kontroler rozłączony – czekam na ponowne podłączenie");
+            state.log("info", "Controller disconnected – connecting again");
             state.emit_status();
         }
         tokio::select! {
@@ -95,7 +95,7 @@ pub async fn run(state: Arc<AppState>) {
     }
 }
 
-/// Zwraca Ok(true), gdy program się zamyka.
+/// Returns Ok(true) when the program is shutting down.
 async fn session(
     state: &Arc<AppState>,
     quit: &mut tokio::sync::watch::Receiver<bool>,
@@ -103,7 +103,7 @@ async fn session(
 ) -> Result<bool, MirajazzError> {
     let Some(info) = list_devices(&[QUERY]).await?.into_iter().next() else {
         if !*announced_missing {
-            state.log("info", "Nie widzę AKP03E – podłącz kontroler");
+            state.log("info", "AKP03E not found – plug in the controller");
             *announced_missing = true;
         }
         return Ok(false);
@@ -112,7 +112,7 @@ async fn session(
 
     let device = Device::connect(&info, PROTOCOL_VERSION, KEY_COUNT, ENCODERS).await?;
     state.connected.store(true, Ordering::Relaxed);
-    state.log("info", format!("Połączono z AKP03E (serial {})", device.serial_number()));
+    state.log("info", format!("Connected to AKP03E (serial {})", device.serial_number()));
     state.emit_status();
 
     device.clear_all_button_images().await?;
@@ -120,8 +120,8 @@ async fn session(
 
     let reader = device.get_reader(process_input);
     let mut keep_alive = tokio::time::interval(Duration::from_secs(15));
-    // Wykrywanie uśpienia bez pomocy systemu: proces zamrożony na czas uśpienia
-    // widzi duży przeskok zegara ściennego między kolejnymi tyknięciami.
+    // Sleep detection without help from the system: a process frozen during sleep
+    // sees a large wall-clock jump between two ticks.
     let mut watchdog = tokio::time::interval(Duration::from_secs(5));
     let mut last_tick = SystemTime::now();
 
@@ -139,7 +139,7 @@ async fn session(
                 let gap = now.duration_since(last_tick).unwrap_or_default();
                 last_tick = now;
                 if gap > Duration::from_secs(30) {
-                    state.log("info", format!("Program był wstrzymany przez {} s (uśpienie?) – łączę ponownie z kontrolerem", gap.as_secs()));
+                    state.log("info", format!("The program was suspended for {} s (sleep?) – reconnecting to the controller", gap.as_secs()));
                     return Ok(false);
                 }
             }

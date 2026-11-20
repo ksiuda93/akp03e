@@ -30,7 +30,7 @@ name = "Claude"
 
 # Six LCD keys per profile, left to right, top row first
 [[profiles.keys]]
-label = "Akceptuj"        # text on the key; "\n" starts a new line
+label = "Accept"           # text on the key; "\n" starts a new line
 color = "#2d6a4f"          # background colour
 icon = "claude.png"        # optional, a file in %APPDATA%\akp03e\icons
 action = { type = "hotkey", keys = "Enter" }

@@ -1,6 +1,6 @@
-//! Wykonywanie akcji w Windows: dźwięk (Core Audio), klawisze (SendInput), uruchamianie.
+//! Running actions in Windows: audio (Core Audio), keys (SendInput), launching.
 //!
-//! Wszystko działa w jednym dedykowanym wątku z zainicjalizowanym COM.
+//! Everything runs on one dedicated thread with COM initialised.
 
 use std::{
     os::windows::process::CommandExt,
@@ -45,7 +45,7 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 pub fn spawn_worker(state: Arc<AppState>, rx: mpsc::Receiver<Action>) {
     std::thread::Builder::new()
-        .name("akcje".into())
+        .name("actions".into())
         .spawn(move || {
             unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).ok() }.expect("COM init");
             poll_mic(&state);
@@ -62,10 +62,10 @@ pub fn spawn_worker(state: Arc<AppState>, rx: mpsc::Receiver<Action>) {
                 poll_mic(&state);
             }
         })
-        .expect("wątek akcji");
+        .expect("actions thread");
 }
 
-/// Sprawdza, czy mikrofon jest wyciszony (też przez inne aplikacje) i odświeża ikonę.
+/// Checks whether the microphone is muted (also by other apps) and refreshes the key.
 fn poll_mic(state: &AppState) {
     let Ok(muted) = endpoint_volume(eCapture).and_then(|v| unsafe { v.GetMute() }) else {
         return;
@@ -84,7 +84,7 @@ fn run(state: &AppState, action: &Action) -> Result<(), String> {
         Action::Text { text, enter } => {
             send_text(text)?;
             if *enter {
-                // Chwila przerwy, żeby aplikacja przetworzyła wpisany tekst przed Enterem.
+                // A short pause so the application processes the typed text before Enter.
                 std::thread::sleep(Duration::from_millis(60));
                 send_hotkey("Enter")?;
             }
@@ -103,25 +103,25 @@ fn run(state: &AppState, action: &Action) -> Result<(), String> {
             state.mic_muted.store(muted, Ordering::Relaxed);
             state.rerender.notify_one();
             state.emit_status();
-            state.log("info", if muted { "Mikrofon wyciszony" } else { "Mikrofon włączony" });
+            state.log("info", if muted { "Microphone muted" } else { "Microphone on" });
             Ok(())
         }
         Action::AppVolume { step } => app_volume(state, Some(*step)),
         Action::AppMute => app_volume(state, None),
         Action::Lock => unsafe { LockWorkStation() }.map_err(|e| e.to_string()),
-        // Obsługiwane w zadaniu urządzenia.
+        // Handled in the device task.
         Action::None | Action::ProfileNext | Action::ProfilePrev | Action::ScreenToggle => Ok(()),
     }
 }
 
-// ---------- uruchamianie ----------
+// ---------- launching ----------
 
 fn open(target: &str, args: &str) -> Result<(), String> {
     if target.trim().is_empty() {
-        return Err("pusty cel".into());
+        return Err("empty target".into());
     }
-    // `start` rozwiązuje PATH, skróty .cmd (np. `code`), pliki, foldery i URL-e.
-    // Cudzysłowy chronią znaki specjalne cmd (np. & w URL-ach).
+    // `start` resolves PATH, .cmd shims (e.g. `code`), files, folders and URLs.
+    // The quotes protect cmd special characters (e.g. & in URLs).
     Command::new("cmd")
         .raw_arg(format!("/C start \"\" \"{}\" {}", target.trim(), args))
         .creation_flags(CREATE_NO_WINDOW)
@@ -130,7 +130,7 @@ fn open(target: &str, args: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-// ---------- klawiatura ----------
+// ---------- keyboard ----------
 
 fn key_input(vk: u16, scan: u16, flags: KEYBD_EVENT_FLAGS) -> INPUT {
     INPUT {
@@ -152,11 +152,11 @@ fn send(inputs: &[INPUT]) -> Result<(), String> {
     if sent as usize == inputs.len() {
         Ok(())
     } else {
-        Err("SendInput odrzucił część zdarzeń (np. aktywne okno działa jako administrator)".into())
+        Err("SendInput rejected some events (e.g. the focused window runs as administrator)".into())
     }
 }
 
-/// Zwraca (kod VK, czy klawisz rozszerzony).
+/// Returns (virtual-key code, whether it is an extended key).
 fn parse_key(name: &str) -> Option<(u16, bool)> {
     let n = name.trim().to_ascii_lowercase();
     let vk = match n.as_str() {
@@ -217,10 +217,10 @@ fn send_hotkey(combo: &str) -> Result<(), String> {
     let keys = combo
         .split('+')
         .filter(|p| !p.trim().is_empty())
-        .map(|p| parse_key(p).ok_or_else(|| format!("nieznany klawisz \"{}\"", p.trim())))
+        .map(|p| parse_key(p).ok_or_else(|| format!("unknown key \"{}\"", p.trim())))
         .collect::<Result<Vec<_>, _>>()?;
     if keys.is_empty() {
-        return Err("pusty skrót".into());
+        return Err("empty shortcut".into());
     }
     let flags = |ext: bool, up: bool| {
         let mut f = KEYBD_EVENT_FLAGS(0);
@@ -246,7 +246,7 @@ fn send_text(text: &str) -> Result<(), String> {
     send(&inputs)
 }
 
-// ---------- dźwięk ----------
+// ---------- audio ----------
 
 fn endpoint_volume(flow: EDataFlow) -> WinResult<IAudioEndpointVolume> {
     unsafe {
@@ -269,7 +269,7 @@ fn system_volume(step: i32) -> WinResult<()> {
     }
 }
 
-/// Przełącza wyciszenie i zwraca nowy stan.
+/// Toggles mute and returns the new state.
 fn toggle_endpoint_mute(flow: EDataFlow) -> WinResult<bool> {
     unsafe {
         let vol = endpoint_volume(flow)?;
@@ -292,8 +292,8 @@ fn process_name(pid: u32) -> Option<String> {
     }
 }
 
-/// Zmienia głośność (Some(step)) lub przełącza wyciszenie (None) aktywnej aplikacji.
-/// Dopasowanie po nazwie .exe, bo np. przeglądarki grają dźwięk z procesów potomnych.
+/// Changes the volume (Some(step)) or toggles mute (None) of the application in focus.
+/// Sessions are matched by .exe name, because e.g. browsers play sound from child processes.
 fn app_volume(state: &AppState, step: Option<i32>) -> Result<(), String> {
     let pid = unsafe {
         let hwnd = GetForegroundWindow();
@@ -301,7 +301,7 @@ fn app_volume(state: &AppState, step: Option<i32>) -> Result<(), String> {
         GetWindowThreadProcessId(hwnd, Some(&mut pid));
         pid
     };
-    let exe = process_name(pid).ok_or("nie można ustalić aktywnej aplikacji")?;
+    let exe = process_name(pid).ok_or("cannot determine the application in focus")?;
 
     fn ctx<T>(what: &str, r: WinResult<T>) -> Result<T, String> {
         r.map_err(|e| format!("{what}: {e}"))
@@ -319,7 +319,7 @@ fn app_volume(state: &AppState, step: Option<i32>) -> Result<(), String> {
             for i in 0..ctx("GetCount", sessions.GetCount())? {
                 let Ok(control) = sessions.GetSession(i) else { continue };
                 let Ok(control2) = windows::core::Interface::cast::<IAudioSessionControl2>(&control) else { continue };
-                // GetProcessId zwraca błąd dla sesji wieloprocesowych – pomijamy je.
+                // GetProcessId fails for multi-process sessions – skip them.
                 let spid = control2.GetProcessId().unwrap_or(0);
                 if spid == 0 || process_name(spid).as_deref() != Some(exe.as_str()) {
                     continue;
@@ -331,7 +331,7 @@ fn app_volume(state: &AppState, step: Option<i32>) -> Result<(), String> {
                         ctx("SetMasterVolume", volume.SetMasterVolume(v, std::ptr::null()))?;
                     }
                     None => {
-                        // Wszystkie sesje aplikacji dostają ten sam stan.
+                        // All sessions of the application get the same state.
                         let mute = *target_mute.get_or_insert(!ctx("GetMute", volume.GetMute())?.as_bool());
                         ctx("SetMute", volume.SetMute(BOOL::from(mute), std::ptr::null()))?;
                     }
@@ -344,7 +344,7 @@ fn app_volume(state: &AppState, step: Option<i32>) -> Result<(), String> {
 
     match result {
         Ok(0) => {
-            state.log("info", format!("{exe}: aplikacja nie odtwarza teraz dźwięku"));
+            state.log("info", format!("{exe}: the application is not playing any sound right now"));
             Ok(())
         }
         Ok(_) => Ok(()),

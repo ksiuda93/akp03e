@@ -1,4 +1,4 @@
-//! Wspólny stan aplikacji: config, aktywny profil, kanały zdarzeń.
+//! Shared application state: configuration, active profile, event channels.
 
 use std::{
     path::PathBuf,
@@ -23,14 +23,14 @@ pub struct AppState {
     pub mic_muted: AtomicBool,
     pub connected: AtomicBool,
     pub autostart: AtomicBool,
-    /// Prośba o ponowne narysowanie klawiszy na urządzeniu.
+    /// Request to redraw the keys on the device.
     pub rerender: Notify,
-    /// Prośba o zamknięcie i ponowne otwarcie połączenia z kontrolerem
-    /// (po wybudzeniu komputera odczyt naciśnięć potrafi przestać działać).
+    /// Request to close and reopen the connection to the controller
+    /// (after the PC wakes up, reading key presses can stop working).
     pub reconnect: Notify,
-    /// Zdarzenia dla panelu (JSON), wysyłane przez SSE.
+    /// Events for the panel (JSON), sent over SSE.
     pub events: broadcast::Sender<String>,
-    /// Akcje do wykonania w wątku Windows.
+    /// Actions to run on the Windows worker thread.
     pub actions: mpsc::Sender<Action>,
     pub quit: watch::Sender<bool>,
 }
@@ -46,11 +46,11 @@ impl AppState {
 
     pub fn log(&self, level: &str, msg: impl Into<String>) {
         let msg = msg.into();
-        let line = if level == "error" { format!("[błąd] {msg}") } else { msg.clone() };
+        let line = if level == "error" { format!("[error] {msg}") } else { msg.clone() };
         if cfg!(debug_assertions) {
             println!("{line}");
         } else {
-            // Wersja w tle nie ma konsoli (a odziedziczone wyjście potrafi blokować) – log do pliku.
+            // The background build has no console (and inherited output can block) – log to a file.
             use std::io::Write;
             let path = self.config_path.with_file_name("akp03e.log");
             if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
@@ -75,14 +75,14 @@ impl AppState {
         })
     }
 
-    /// Zapisuje autostart w rejestrze; stan w pamięci odzwierciedla to, co faktycznie się udało.
+    /// Writes the autostart entry to the registry; the in-memory flag reflects what actually succeeded.
     pub fn set_autostart(&self, enabled: bool) {
         match crate::system::set_autostart(enabled) {
             Ok(()) => {
                 self.autostart.store(enabled, Ordering::Relaxed);
-                self.log("info", if enabled { "Autostart włączony" } else { "Autostart wyłączony" });
+                self.log("info", if enabled { "Start with Windows enabled" } else { "Start with Windows disabled" });
             }
-            Err(e) => self.log("error", format!("Autostart: {e}")),
+            Err(e) => self.log("error", format!("Start with Windows: {e}")),
         }
         self.emit_status();
     }

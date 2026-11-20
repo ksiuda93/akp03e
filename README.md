@@ -51,13 +51,11 @@ Instead of relying on the vendor's software, I wanted something I fully understa
   back in, and after the PC wakes from sleep (including Modern Standby), when the device would
   otherwise stop reporting key presses.
 
-The user interface and log messages are currently in Polish.
-
 ## Default layout
 
 | Profile | LCD keys |
 |---|---|
-| Praca (Work) | Microphone toggle, Terminal (`wt.exe`), VS Code, Jira, Grafana, Screenshot (`Win+Shift+S`) |
+| Work | Microphone toggle, Terminal (`wt.exe`), VS Code, Jira, Grafana, Screenshot (`Win+Shift+S`) |
 | Media | Play/Pause, Previous, Next, Microphone toggle, Mute, Lock |
 | Claude | Accept (`Enter`), Stop (`Esc`), Mode (`Shift+Tab`), `/clear`, `/compact`, New Claude (`wt.exe claude`) |
 
@@ -106,7 +104,7 @@ cd akp03e
 `install.ps1` builds the release version, copies it to
 `%LOCALAPPDATA%\Programs\akp03e\akp03e-panel.exe`, stops the old instance if it is running, and starts
 the new one. The panel opens in your browser; afterwards use the tray icon. Enable
-"Uruchamiaj z Windows" (start with Windows) in the panel or the tray menu.
+"Start with Windows" in the panel or the tray menu.
 
 ### Develop
 
@@ -139,8 +137,8 @@ Helper scripts:
 
 ## Troubleshooting
 
-- **The controller shows images but ignores presses** – use "Połącz ponownie z kontrolerem"
-  (reconnect) in the tray menu. This normally happens on its own after the PC wakes up.
+- **The controller shows images but ignores presses** – use "Reconnect to controller" in the
+  tray menu. This normally happens on its own after the PC wakes up.
 - **The program disappears or settings are not saved** – the executable is unsigned and sends
   keystrokes, which some antivirus products treat as suspicious. Norton, for example, quarantined it
   and ran a freshly built copy in isolation, so its file writes never reached the disk. Adding an

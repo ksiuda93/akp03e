@@ -1,7 +1,7 @@
-//! Obsługa Ajazz AKP03E (rev. 2, 0300:3002) z panelem konfiguracyjnym w przeglądarce
-//! i ikoną w zasobniku systemowym.
+//! Driver for the Ajazz AKP03E (rev. 2, 0300:3002) with a browser-based configuration panel
+//! and a system tray icon.
 
-// Wersja release działa w tle bez okna konsoli; debug zostawia konsolę z logami.
+// The release build runs in the background without a console window; debug keeps the console for logs.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod actions;
@@ -34,7 +34,7 @@ fn data_dir() -> PathBuf {
 
 fn fatal(msg: &str) -> ! {
     eprintln!("{msg}");
-    // W wersji bez konsoli komunikat musi być widoczny.
+    // Without a console the message has to be shown some other way.
     let _ = std::process::Command::new("msg").args(["*", &format!("AKP03E: {msg}")]).spawn();
     std::process::exit(1);
 }
@@ -43,7 +43,7 @@ fn main() {
     let from_autostart = std::env::args().any(|a| a == system::AUTOSTART_ARG);
 
     if !system::acquire_single_instance() {
-        // Program już działa – pokaż panel zamiast uruchamiać drugą kopię.
+        // Already running – show the panel instead of starting a second copy.
         if !from_autostart {
             system::open_panel();
         }
@@ -53,11 +53,11 @@ fn main() {
     let dir = data_dir();
     let icons_dir = dir.join("icons");
     if let Err(e) = std::fs::create_dir_all(&icons_dir) {
-        fatal(&format!("nie można utworzyć {}: {e}", icons_dir.display()));
+        fatal(&format!("cannot create {}: {e}", icons_dir.display()));
     }
     let config_path = dir.join("config.toml");
     let config = Config::load_or_create(&config_path)
-        .unwrap_or_else(|e| fatal(&format!("{e}\nPopraw plik albo usuń go, żeby wygenerować domyślny.")));
+        .unwrap_or_else(|e| fatal(&format!("{e}\nFix the file, or delete it to get the default configuration.")));
 
     let (actions_tx, actions_rx) = mpsc::channel();
     let (quit_tx, _) = watch::channel(false);
@@ -77,22 +77,22 @@ fn main() {
         quit: quit_tx,
     });
 
-    // Log z poprzedniego uruchomienia nie jest potrzebny.
+    // The log of the previous run is not needed.
     let _ = std::fs::remove_file(dir.join("akp03e.log"));
-    state.log("info", format!("Start. Config: {}, panel: http://{}", config_path.display(), web::ADDR));
+    state.log("info", format!("Started. Config: {}, panel: http://{}", config_path.display(), web::ADDR));
 
-    // Panika w dowolnym wątku trafia do logu – bez konsoli inaczej ginie bez śladu.
+    // A panic on any thread goes to the log – without a console it would otherwise vanish without a trace.
     let panic_state = state.clone();
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        panic_state.log("error", format!("Panika: {info}"));
+        panic_state.log("error", format!("Panic: {info}"));
         default_hook(info);
     }));
 
     system::watch_display(state.clone());
     actions::spawn_worker(state.clone(), actions_rx);
 
-    // Tokio w osobnym wątku – główny wątek obsługuje ikonę w zasobniku.
+    // Tokio runs on its own thread – the main thread handles the tray icon.
     let rt_state = state.clone();
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().expect("tokio");
@@ -105,18 +105,18 @@ fn main() {
                 _ = tokio::signal::ctrl_c() => {}
                 _ = quit.changed() => {}
             }
-            rt_state.log("info", "Zamykanie");
+            rt_state.log("info", "Shutting down");
             let _ = rt_state.quit.send(true);
-            // Czekamy tylko na posprzątanie kontrolera; panel z otwartym SSE nie zamknie się sam.
+            // Only wait for the controller cleanup; a panel with an open event stream never closes by itself.
             let _ = tokio::time::timeout(Duration::from_secs(3), device_task).await;
             web_task.abort();
-            // Odczyty HID działają w wątkach blokujących, na które runtime czekałby w nieskończoność.
+            // HID reads run on blocking threads that the runtime would wait for forever.
             std::process::exit(0);
         });
     });
 
     if !from_autostart {
-        // Daj serwerowi chwilę na start, zanim otworzymy przeglądarkę.
+        // Give the server a moment to start before opening the browser.
         let s = state.clone();
         std::thread::spawn(move || {
             for _ in 0..50 {
@@ -126,7 +126,7 @@ fn main() {
                 }
                 std::thread::sleep(Duration::from_millis(200));
             }
-            s.log("error", "Panel nie wystartował w 10 s");
+            s.log("error", "The panel did not start within 10 s");
         });
     }
 

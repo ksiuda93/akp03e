@@ -1,4 +1,4 @@
-//! Lokalny panel konfiguracyjny: http://127.0.0.1:7878
+//! Local configuration panel and HTTP API: http://127.0.0.1:7878
 
 use std::{convert::Infallible, io::Cursor, sync::Arc};
 
@@ -41,7 +41,7 @@ pub async fn serve(state: Shared) {
         .route(
             "/api/reconnect",
             post(|State(s): State<Shared>| async move {
-                s.log("info", "Ponowne łączenie z kontrolerem (panel)");
+                s.log("info", "Reconnecting to the controller (panel)");
                 s.reconnect.notify_one();
                 Json(s.status())
             }),
@@ -49,20 +49,20 @@ pub async fn serve(state: Shared) {
         .route("/api/events", get(events))
         .with_state(state.clone());
 
-    // Poprzednia instancja może jeszcze przez chwilę trzymać port – próbujemy kilka razy.
+    // A previous instance may hold the port for a moment while it shuts down – retry a few times.
     let mut attempt = 0;
     let listener = loop {
         match tokio::net::TcpListener::bind(ADDR).await {
             Ok(l) => break l,
             Err(e) if attempt < 10 => {
                 if attempt == 0 {
-                    state.log("info", format!("Port {ADDR} zajęty ({e}) – ponawiam…"));
+                    state.log("info", format!("Port {ADDR} is busy ({e}) – retrying…"));
                 }
                 attempt += 1;
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
             Err(e) => {
-                state.log("error", format!("Nie można uruchomić panelu na {ADDR}: {e}. Czy program nie działa już w innym oknie?"));
+                state.log("error", format!("Cannot start the panel on {ADDR}: {e}. Is another program using this port?"));
                 return;
             }
         }
@@ -87,13 +87,13 @@ async fn get_config(State(s): State<Shared>) -> Json<Config> {
 async fn put_config(State(s): State<Shared>, headers: axum::http::HeaderMap, Json(mut cfg): Json<Config>) -> Response {
     cfg.normalize();
     if let Err(e) = cfg.save(&s.config_path) {
-        return err(StatusCode::INTERNAL_SERVER_ERROR, format!("Zapis nie powiódł się: {e}"));
+        return err(StatusCode::INTERNAL_SERVER_ERROR, format!("Saving failed: {e}"));
     }
     *s.config.write().unwrap() = cfg.clone();
-    // Inne otwarte panele muszą pobrać nową wersję, inaczej nadpiszą ją swoją starą kopią.
+    // Other open panels must reload, otherwise they would overwrite this with their old copy.
     let client = headers.get("x-client").and_then(|v| v.to_str().ok()).unwrap_or("");
     s.emit(serde_json::json!({ "type": "config", "client": client }));
-    // Profil mógł zostać usunięty – set_profile przytnie indeks i odświeży urządzenie.
+    // A profile may have been deleted – set_profile clamps the index and redraws the device.
     s.set_profile(s.profile.load(std::sync::atomic::Ordering::Relaxed));
     Json(cfg).into_response()
 }
@@ -114,7 +114,7 @@ async fn preview(State(s): State<Shared>, Query(q): Query<PreviewQuery>) -> Resp
         let cfg = s.config.read().unwrap();
         match cfg.profiles.get(q.profile).and_then(|p| p.keys.get(q.key)) {
             Some(k) => k.clone(),
-            None => return err(StatusCode::NOT_FOUND, "brak klawisza"),
+            None => return err(StatusCode::NOT_FOUND, "no such key"),
         }
     };
     let img = render_key(&key, &s.icons_dir, s.mic_muted.load(std::sync::atomic::Ordering::Relaxed));
@@ -130,11 +130,11 @@ struct UploadQuery {
     name: String,
 }
 
-/// Przyjmuje dowolny obrazek (PNG/JPEG), zmniejsza do 128 px i zapisuje jako PNG w katalogu ikon.
+/// Accepts an image (PNG/JPEG), scales it down to at most 128 px and saves it as PNG in the icons folder.
 async fn upload_icon(State(s): State<Shared>, Query(q): Query<UploadQuery>, body: Bytes) -> Response {
     let img = match image::load_from_memory(&body) {
         Ok(img) => img,
-        Err(e) => return err(StatusCode::BAD_REQUEST, format!("To nie jest obsługiwany obrazek (PNG/JPEG): {e}")),
+        Err(e) => return err(StatusCode::BAD_REQUEST, format!("Not a supported image (PNG/JPEG): {e}")),
     };
     let img = if img.width() > 128 || img.height() > 128 {
         img.resize(128, 128, image::imageops::FilterType::Lanczos3)
@@ -145,7 +145,7 @@ async fn upload_icon(State(s): State<Shared>, Query(q): Query<UploadQuery>, body
     let stem: String = std::path::Path::new(&q.name)
         .file_stem()
         .and_then(|s| s.to_str())
-        .unwrap_or("ikona")
+        .unwrap_or("icon")
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c.to_ascii_lowercase() } else { '_' })
         .take(40)
